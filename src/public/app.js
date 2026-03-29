@@ -9,7 +9,10 @@ const state = {
 
 // DOM Elements
 const userInput = document.getElementById('userInput');
+const languageInput = document.getElementById('languageInput');
 const setUserBtn = document.getElementById('setUserBtn');
+const setLanguageBtn = document.getElementById('setLanguageBtn');
+const languageLabel = document.getElementById('languageLabel');
 const username = document.getElementById('username');
 const roomInput = document.getElementById('roomInput');
 const createRoomBtn = document.getElementById('createRoomBtn');
@@ -21,6 +24,28 @@ const messagesContainer = document.getElementById('messagesContainer');
 const messages = document.getElementById('messages');
 const messageInput = document.getElementById('messageInput');
 const sendBtn = document.getElementById('sendBtn');
+const themeToggleBtn = document.getElementById('themeToggleBtn');
+
+function applyTheme(theme) {
+    if (theme === 'light') {
+        document.documentElement.classList.add('light-mode');
+        themeToggleBtn.textContent = 'Dark mode';
+    } else {
+        document.documentElement.classList.remove('light-mode');
+        themeToggleBtn.textContent = 'Light mode';
+    }
+    localStorage.setItem('chatTheme', theme);
+}
+
+function loadTheme() {
+    const savedTheme = localStorage.getItem('chatTheme') || 'dark';
+    applyTheme(savedTheme);
+}
+
+themeToggleBtn.addEventListener('click', () => {
+    const currentTheme = document.documentElement.classList.contains('light-mode') ? 'light' : 'dark';
+    applyTheme(currentTheme === 'light' ? 'dark' : 'light');
+});
 
 // Initialize WebSocket connection
 function initWebSocket() {
@@ -73,6 +98,24 @@ function handleMessage(data) {
 }
 
 // Set username
+setLanguageBtn.addEventListener('click', () => {
+    const language = languageInput.value.trim();
+    if (language) {
+        state.currentLanguage = language;
+        languageLabel.textContent = `${language}`;
+        languageInput.value = '';
+        languageInput.disabled = true;
+        setLanguageBtn.disabled = true;
+        
+        if (state.socket && state.socket.readyState === WebSocket.OPEN) {
+            state.socket.send(JSON.stringify({
+                type: 'set-language',
+                language: state.currentLanguage,
+            }));
+        }
+        requestRoomsList();
+    }
+});
 setUserBtn.addEventListener('click', () => {
     const name = userInput.value.trim();
     if (name) {
@@ -127,6 +170,7 @@ function sendMessage() {
             type: 'message',
             room: state.currentRoom,
             author: state.currentUser,
+            language: state.currentLanguage,
             text: message,
             timestamp: new Date().toISOString(),
         };
@@ -335,5 +379,6 @@ function formatTime(isoString) {
 
 // Initialize app
 window.addEventListener('load', () => {
+    loadTheme();
     initWebSocket();
 });
