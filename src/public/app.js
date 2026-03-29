@@ -29,6 +29,8 @@ const messagesContainer = document.getElementById('messagesContainer');
 const messages = document.getElementById('messages');
 const messageInput = document.getElementById('messageInput');
 const sendBtn = document.getElementById('sendBtn');
+const toggleSidebarBtn = document.getElementById('toggleSidebarBtn');
+const sidebar = document.querySelector('.sidebar');
 
 // Modal Elements
 const passwordModal = document.getElementById('passwordModal');
@@ -426,6 +428,7 @@ function selectRoom(roomId, notifyServer = false, password = null) {
     }, 0);
 
     messageInput.focus();
+    hideSidebarOnMobile();
 }
 
 // Add room to list
@@ -555,6 +558,17 @@ modalPasswordInput.addEventListener('keypress', (e) => {
         submitPassword();
     }
 });
+
+toggleSidebarBtn?.addEventListener('click', () => {
+    sidebar?.classList.toggle('visible');
+});
+
+// Optionally auto-hide sidebar on room select in mobile mode
+function hideSidebarOnMobile() {
+    if (window.innerWidth <= 854) {
+        sidebar?.classList.remove('visible');
+    }
+}
 
 // Initialize app
 window.addEventListener('load', () => {
