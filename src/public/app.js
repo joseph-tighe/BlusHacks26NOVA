@@ -29,6 +29,7 @@ const messagesContainer = document.getElementById('messagesContainer');
 const messages = document.getElementById('messages');
 const messageInput = document.getElementById('messageInput');
 const sendBtn = document.getElementById('sendBtn');
+const openSidebarBtn = document.getElementById('openSidebarBtn');
 const toggleSidebarBtn = document.getElementById('toggleSidebarBtn');
 const sidebar = document.querySelector('.sidebar');
 
@@ -561,6 +562,10 @@ modalPasswordInput.addEventListener('keypress', (e) => {
 
 toggleSidebarBtn?.addEventListener('click', () => {
     sidebar?.classList.toggle('visible');
+});
+
+openSidebarBtn?.addEventListener('click', () => {
+    sidebar?.classList.add('visible');
 });
 
 // Optionally auto-hide sidebar on room select in mobile mode
