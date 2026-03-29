@@ -570,19 +570,19 @@ input, textarea, button { cursor: crosshair; }
 
 /* Mobile sidebar toggle + layout */
 .toggle-sidebar-btn,
-  .open-sidebar-btn {
-    display: none;
-    margin-top: 8px;
-    width: 34px;
-    height: 34px;
-    font-size: 18px;
-    line-height: 1;
-    border-radius: 4px;
-  }
+.open-sidebar-btn {
+  display: none;
+  margin-top: 8px;
+  width: 34px;
+  height: 34px;
+  font-size: 18px;
+  line-height: 1;
+  border-radius: 4px;
+}
 
-  .open-sidebar-btn {
-    margin-right: 10px;
-  }
+.open-sidebar-btn {
+  margin-right: 10px;
+}
 
 @media (max-width: 854px) {
   .container {
@@ -610,12 +610,15 @@ input, textarea, button { cursor: crosshair; }
   .chat-container {
     grid-row: 2;
     width: 100%;
-    height: calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
-    min-height: 100vh;
+    max-height: 100vh;
+    min-height: 0;
+    height: auto;
   }
 
   .messages-container {
-    height: calc(100% - 115px);
+    flex: 1;
+    min-height: 0;
+    max-height: calc(100vh - 140px);
   }
 
   .toggle-sidebar-btn,
