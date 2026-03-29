@@ -1,0 +1,8 @@
+{
+  "type": "module",
+  "dependencies": {
+    "express": "^5.2.1",
+    "npx": "^10.2.2",
+    "path": "^0.12.7"
+  }
+}

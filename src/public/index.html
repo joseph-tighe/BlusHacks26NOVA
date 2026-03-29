@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Private Room Chat</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="user-section">
+                <h2 id="username">Welcome</h2>
+                <input type="text" id="userInput" placeholder="Enter username" class="user-input">
+                <button id="setUserBtn" class="btn-primary">Set Username</button>
+            </div>
+
+            <div class="rooms-section">
+                <h3>Private Rooms</h3>
+                <div class="room-list" id="roomList"></div>
+                <div class="create-room">
+                    <input type="text" id="roomInput" placeholder="Room name or username">
+                    <button id="createRoomBtn" class="btn-primary">Create/Join Room</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Area -->
+        <div class="chat-container">
+            <div class="chat-header">
+                <div class="room-info">
+                    <h2 id="roomTitle">Select a room</h2>
+                    <p id="roomDescription">Choose a room to start chatting</p>
+                </div>
+                <div class="room-users" id="roomUsers"></div>
+            </div>
+
+            <div class="messages-container" id="messagesContainer">
+                <div class="messages" id="messages"></div>
+            </div>
+
+            <div class="chat-input-area">
+                <textarea id="messageInput" placeholder="Type a message..." class="message-input"></textarea>
+                <button id="sendBtn" class="btn-primary">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
