@@ -24,28 +24,6 @@ const messagesContainer = document.getElementById('messagesContainer');
 const messages = document.getElementById('messages');
 const messageInput = document.getElementById('messageInput');
 const sendBtn = document.getElementById('sendBtn');
-const themeToggleBtn = document.getElementById('themeToggleBtn');
-
-function applyTheme(theme) {
-    if (theme === 'light') {
-        document.documentElement.classList.add('light-mode');
-        themeToggleBtn.textContent = 'Dark mode';
-    } else {
-        document.documentElement.classList.remove('light-mode');
-        themeToggleBtn.textContent = 'Light mode';
-    }
-    localStorage.setItem('chatTheme', theme);
-}
-
-function loadTheme() {
-    const savedTheme = localStorage.getItem('chatTheme') || 'dark';
-    applyTheme(savedTheme);
-}
-
-themeToggleBtn.addEventListener('click', () => {
-    const currentTheme = document.documentElement.classList.contains('light-mode') ? 'light' : 'dark';
-    applyTheme(currentTheme === 'light' ? 'dark' : 'light');
-});
 
 // Initialize WebSocket connection
 function initWebSocket() {
@@ -56,6 +34,7 @@ function initWebSocket() {
 
     state.socket.onopen = () => {
         console.log('Connected to WebSocket');
+        requestRoomsList();
         if (state.currentUser) {
             state.socket.send(JSON.stringify({
                 type: 'user-connected',
@@ -81,6 +60,7 @@ function initWebSocket() {
 
 // Handle incoming messages
 function handleMessage(data) {
+    console.log('WS event:', data);
     switch (data.type) {
         case 'message':
             addMessage(data.room, data);
@@ -94,6 +74,27 @@ function handleMessage(data) {
         case 'rooms-list':
             loadRoomsList(data.rooms);
             break;
+        case 'room-joined':
+            // Keep UI in sync when the server confirms join
+            if (data.room) {
+                if (!state.rooms[data.room]) {
+                    state.rooms[data.room] = {
+                        id: data.room,
+                        name: data.room,
+                        participants: data.participants || [],
+                        messages: [],
+                    };
+                } else {
+                    state.rooms[data.room].participants = data.participants || [];
+                    state.rooms[data.room].name = data.room;
+                }
+
+                addRoomToList(data.room, data.participants || [], data.room);
+                selectRoom(data.room, false);
+            }
+            break;
+        default:
+            console.warn('Unhandled WS event type:', data.type);
     }
 }
 
@@ -110,6 +111,7 @@ setLanguageBtn.addEventListener('click', () => {
         if (state.socket && state.socket.readyState === WebSocket.OPEN) {
             state.socket.send(JSON.stringify({
                 type: 'set-language',
+                user: state.currentUser,
                 language: state.currentLanguage,
             }));
         }
@@ -159,6 +161,11 @@ messageInput.addEventListener('keypress', (e) => {
 });
 
 function sendMessage() {
+    if (!state.currentUser) {
+        alert('Please set your username first');
+        return;
+    }
+
     if (!state.currentRoom) {
         alert('Please select a room first');
         return;
@@ -177,6 +184,9 @@ function sendMessage() {
 
         if (state.socket && state.socket.readyState === WebSocket.OPEN) {
             state.socket.send(JSON.stringify(msgData));
+            // Do not add locally: server echo will handle display and avoid duplicates.
+        } else {
+            console.warn('Cannot send message: socket not open');
         }
 
         messageInput.value = '';
@@ -200,37 +210,25 @@ function displayMessage(msgData) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${msgData.author === state.currentUser ? 'own' : ''}`;
 
-    const avatar = document.createElement('div');
-    avatar.className = 'message-avatar';
-    avatar.textContent = msgData.author.charAt(0).toUpperCase();
+    const msgLeft = document.createElement('div');
+    msgLeft.className = 'msg-left';
 
-    const content = document.createElement('div');
-    content.className = 'message-content';
+    const author = document.createElement('div');
+    author.className = 'msg-author';
+    author.textContent = msgData.author || 'Unknown';
+    msgLeft.appendChild(author);
 
-    const header = document.createElement('div');
-    header.className = 'message-header';
-
-    if (msgData.author !== state.currentUser) {
-        const author = document.createElement('span');
-        author.className = 'message-author';
-        author.textContent = msgData.author;
-        header.appendChild(author);
-    }
-
-    const time = document.createElement('span');
-    time.className = 'message-time';
+    const time = document.createElement('div');
+    time.className = 'msg-time';
     time.textContent = formatTime(msgData.timestamp);
-    header.appendChild(time);
+    msgLeft.appendChild(time);
 
-    const text = document.createElement('div');
-    text.className = 'message-text';
-    text.textContent = msgData.text;
+    const msgBody = document.createElement('div');
+    msgBody.className = 'msg-body';
+    msgBody.textContent = msgData.text;
 
-    content.appendChild(header);
-    content.appendChild(text);
-
-    messageDiv.appendChild(avatar);
-    messageDiv.appendChild(content);
+    messageDiv.appendChild(msgLeft);
+    messageDiv.appendChild(msgBody);
 
     messages.appendChild(messageDiv);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
@@ -251,24 +249,39 @@ function createOrJoinRoom(roomName) {
         state.rooms[roomId].participants.push(state.currentUser);
     }
 
-    selectRoom(roomId);
-
-    if (state.socket && state.socket.readyState === WebSocket.OPEN) {
-        state.socket.send(JSON.stringify({
-            type: 'join-room',
-            room: roomId,
-            roomName: roomName,
-            user: state.currentUser,
-        }));
-    }
-
     addRoomToList(roomId, state.rooms[roomId].participants, roomName);
+    selectRoom(roomId, true);
 }
 
 // Select room
-function selectRoom(roomId) {
+function selectRoom(roomId, notifyServer = false) {
+    if (!state.currentUser) {
+        alert('Please set your username first');
+        return;
+    }
+
+    if (state.currentRoom === roomId) {
+        // Already selected; just ensure UI is synced.
+        updateRoomUsers(roomId, state.rooms[roomId]?.participants || []);
+        return;
+    }
+
     state.currentRoom = roomId;
-    const room = state.rooms[roomId];
+    const room = state.rooms[roomId] || {
+        id: roomId,
+        name: roomId,
+        participants: [],
+        messages: [],
+    };
+
+    if (notifyServer && state.socket && state.socket.readyState === WebSocket.OPEN) {
+        state.socket.send(JSON.stringify({
+            type: 'join-room',
+            room: roomId,
+            roomName: room.name,
+            user: state.currentUser,
+        }));
+    }
 
     roomTitle.textContent = room.name;
     roomDescription.textContent = `${room.participants.length} participant${room.participants.length !== 1 ? 's' : ''}`;
@@ -322,7 +335,7 @@ function addRoomToList(roomId, participants = [], roomName = null) {
         roomItem.appendChild(namePart);
         roomItem.appendChild(badge);
 
-        roomItem.addEventListener('click', () => selectRoom(roomId));
+        roomItem.addEventListener('click', () => selectRoom(roomId, true));
 
         roomList.appendChild(roomItem);
     } else {
@@ -335,6 +348,19 @@ function addRoomToList(roomId, participants = [], roomName = null) {
 
 // Update room users display
 function updateRoomUsers(room, participants) {
+    if (!state.rooms[room]) {
+        state.rooms[room] = {
+            id: room,
+            name: room,
+            participants: participants,
+            messages: [],
+        };
+    } else {
+        state.rooms[room].participants = participants;
+    }
+
+    addRoomToList(room, participants, state.rooms[room].name);
+
     if (room === state.currentRoom) {
         roomUsers.innerHTML = '';
         participants.forEach(participant => {
@@ -344,10 +370,6 @@ function updateRoomUsers(room, participants) {
             userDiv.textContent = participant.charAt(0).toUpperCase();
             roomUsers.appendChild(userDiv);
         });
-    }
-
-    if (state.rooms[room]) {
-        state.rooms[room].participants = participants;
     }
 }
 
@@ -372,6 +394,9 @@ function loadRoomsList(roomsList) {
 // Format time
 function formatTime(isoString) {
     const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) {
+        return '--:--';
+    }
     const hours = String(date.getHours()).padStart(2, '0');
     const minutes = String(date.getMinutes()).padStart(2, '0');
     return `${hours}:${minutes}`;
@@ -379,6 +404,5 @@ function formatTime(isoString) {
 
 // Initialize app
 window.addEventListener('load', () => {
-    loadTheme();
     initWebSocket();
 });

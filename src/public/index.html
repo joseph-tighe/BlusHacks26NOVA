@@ -29,7 +29,7 @@ html, body {
   font-size: 13px;
   line-height: 1.4;
   overflow: hidden;
-  cursor: crosshair;
+ 
 }
 
 input, textarea, button { cursor: crosshair; }
@@ -136,7 +136,7 @@ input, textarea, button { cursor: crosshair; }
   letter-spacing: 0.16em;
   text-transform: uppercase;
   padding: 8px;
-  cursor: crosshair;
+  cursor: auto;
   transition: background 0.08s, color 0.08s, border-color 0.08s;
   margin-bottom: 10px;
   display: block;
@@ -177,7 +177,7 @@ input, textarea, button { cursor: crosshair; }
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--c5);
-  cursor: crosshair;
+  cursor: auto;
   border-left: 3px solid transparent;
   transition: color 0.08s, border-color 0.08s, background 0.08s;
   user-select: none;
@@ -388,7 +388,7 @@ input, textarea, button { cursor: crosshair; }
   font-weight: 700;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  cursor: crosshair;
+  cursor: grab;
   transition: background 0.08s, color 0.08s;
   padding: 0;
   margin: 0;
@@ -441,7 +441,6 @@ input, textarea, button { cursor: crosshair; }
       </div>
       <div class="header-right">
         <div id="roomUsers"></div>
-        <button id="themeToggleBtn" class="btn-primary">Light</button>
       </div>
     </div>
 
@@ -461,173 +460,6 @@ input, textarea, button { cursor: crosshair; }
   </div>
 </div>
 
-<script>
-  let currentUser = '—';
-  let currentLanguage = 'English';
-  let currentRoom = null;
-  const rooms = {};
-  let lightMode = false;
-
-  const usernameEl    = document.getElementById('username');
-  const userInput     = document.getElementById('userInput');
-  const setUserBtn    = document.getElementById('setUserBtn');
-  const langLabel     = document.getElementById('languageLabel');
-  const langInput     = document.getElementById('language');
-  const setLangBtn    = document.getElementById('setLanguageBtn');
-  const roomList      = document.getElementById('roomList');
-  const roomInput     = document.getElementById('roomInput');
-  const createRoomBtn = document.getElementById('createRoomBtn');
-  const roomTitle     = document.getElementById('roomTitle');
-  const roomDesc      = document.getElementById('roomDescription');
-  const messagesEl    = document.getElementById('messages');
-  const msgContainer  = document.getElementById('messagesContainer');
-  const messageInput  = document.getElementById('messageInput');
-  const sendBtn       = document.getElementById('sendBtn');
-  const themeBtn      = document.getElementById('themeToggleBtn');
-
-  setUserBtn.addEventListener('click', () => {
-    const v = userInput.value.trim();
-    if (!v) return;
-    currentUser = v;
-    usernameEl.textContent = v;
-    userInput.value = '';
-    if (currentRoom) appendSys(v + ' identified');
-  });
-  userInput.addEventListener('keydown', e => { if (e.key === 'Enter') setUserBtn.click(); });
-
-  setLangBtn.addEventListener('click', () => {
-    const v = langInput.value.trim();
-    if (!v) return;
-    currentLanguage = v;
-    langLabel.textContent = v;
-    langInput.value = '';
-  });
-  langInput.addEventListener('keydown', e => { if (e.key === 'Enter') setLangBtn.click(); });
-
-  createRoomBtn.addEventListener('click', createOrJoin);
-  roomInput.addEventListener('keydown', e => { if (e.key === 'Enter') createOrJoin(); });
-
-  function createOrJoin() {
-    const n = roomInput.value.trim();
-    if (!n) return;
-    if (!rooms[n]) rooms[n] = [];
-    roomInput.value = '';
-    switchRoom(n);
-    renderRoomList();
-  }
-
-  function switchRoom(name) {
-    currentRoom = name;
-    roomTitle.textContent = name.toUpperCase();
-    roomDesc.textContent = rooms[name].length + ' messages';
-    renderRoomList();
-    renderMessages();
-  }
-
-  function renderRoomList() {
-    roomList.innerHTML = '';
-    Object.keys(rooms).forEach(name => {
-      const el = document.createElement('div');
-      el.className = 'room-item' + (name === currentRoom ? ' active' : '');
-      el.textContent = name;
-      el.addEventListener('click', () => { switchRoom(name); renderRoomList(); });
-      roomList.appendChild(el);
-    });
-  }
-
-  function renderMessages() {
-    if (!currentRoom) return;
-    const msgs = rooms[currentRoom];
-    if (!msgs.length) {
-      messagesEl.innerHTML = '<div class="empty-state"><div class="e-head">No messages</div><div class="e-sub">Send the first one</div></div>';
-      return;
-    }
-    messagesEl.innerHTML = '';
-    msgs.forEach(m => messagesEl.appendChild(buildMsg(m)));
-    scrollBottom();
-  }
-
-  function buildMsg(m) {
-    const isOwn = m.author === currentUser;
-    const wrap = document.createElement('div');
-    wrap.className = 'message' + (isOwn ? ' own' : '');
-    const t = new Date(m.ts);
-    const hh = String(t.getHours()).padStart(2,'0');
-    const mm = String(t.getMinutes()).padStart(2,'0');
-    wrap.innerHTML =
-      '<div class="msg-left">' +
-        '<span class="msg-author">' + esc(m.author) + '</span>' +
-        '<span class="msg-time">' + hh + ':' + mm + '</span>' +
-      '</div>' +
-      '<div class="msg-body">' + esc(m.text) + '</div>';
-    return wrap;
-  }
-
-  function appendSys(text) {
-    const el = document.createElement('div');
-    el.className = 'sys-msg';
-    el.textContent = text;
-    messagesEl.appendChild(el);
-    scrollBottom();
-  }
-
-  sendBtn.addEventListener('click', sendMessage);
-  messageInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-  });
-
-  function sendMessage() {
-    const text = messageInput.value.trim();
-    if (!text || !currentRoom) return;
-    const msg = { author: currentUser, text, ts: Date.now() };
-    rooms[currentRoom].push(msg);
-    messageInput.value = '';
-    const empty = messagesEl.querySelector('.empty-state');
-    if (empty) empty.remove();
-    const el = buildMsg(msg);
-    el.classList.add('new');
-    messagesEl.appendChild(el);
-    roomDesc.textContent = rooms[currentRoom].length + ' messages';
-    scrollBottom();
-  }
-
-  function scrollBottom() {
-    msgContainer.scrollTop = msgContainer.scrollHeight;
-  }
-
-  themeBtn.addEventListener('click', () => {
-    lightMode = !lightMode;
-    const r = document.documentElement.style;
-    if (lightMode) {
-      r.setProperty('--c0','#f4f4f4');
-      r.setProperty('--c1','#eaeaea');
-      r.setProperty('--c2','#dcdcdc');
-      r.setProperty('--c3','#cccccc');
-      r.setProperty('--c4','#aaaaaa');
-      r.setProperty('--c5','#888888');
-      r.setProperty('--c6','#555555');
-      r.setProperty('--c7','#222222');
-      r.setProperty('--c8','#0a0a0a');
-      r.setProperty('--white','#000000');
-      themeBtn.textContent = 'Dark';
-    } else {
-      r.setProperty('--c0','#0d0d0d');
-      r.setProperty('--c1','#141414');
-      r.setProperty('--c2','#1e1e1e');
-      r.setProperty('--c3','#2a2a2a');
-      r.setProperty('--c4','#3d3d3d');
-      r.setProperty('--c5','#5a5a5a');
-      r.setProperty('--c6','#8a8a8a');
-      r.setProperty('--c7','#b0b0b0');
-      r.setProperty('--c8','#d8d8d8');
-      r.setProperty('--white','#f0f0f0');
-      themeBtn.textContent = 'Light';
-    }
-  });
-
-  function esc(s) {
-    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  }
-</script>
+<script src="app.js"></script>
 </body>
 </html>
