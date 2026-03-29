@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PRIVATE ROOM CHAT</title>
+<title>NOVA | Chat Rooms</title>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -201,6 +201,15 @@ input, textarea, button { cursor: crosshair; }
 .create-room input:focus { border-left-color: var(--white); }
 .create-room input::placeholder { color: var(--c4); }
 
+.button-group {
+  display: flex;
+  gap: 8px;
+}
+
+.button-group button {
+  flex: 1;
+}
+
 /* ── CHAT ── */
 .chat-container {
   display: grid;
@@ -266,6 +275,9 @@ input, textarea, button { cursor: crosshair; }
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  scroll-behavior: smooth;
 }
 
 .messages {
@@ -401,14 +413,194 @@ input, textarea, button { cursor: crosshair; }
   to   { opacity: 1; }
 }
 .message.new { animation: rowIn 0.12s ease-out; }
+
+/* ── LOADING SCREEN ── */
+#loadingScreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--c0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  transition: opacity 0.5s ease-out;
+}
+
+#loadingScreen.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.loading-content {
+  text-align: center;
+}
+
+.loading-text {
+  font-size: 48px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--white);
+  margin-bottom: 30px;
+}
+
+.loading-spinner {
+  width: 50px;
+  height: 50px;
+  border: 3px solid var(--c3);
+  border-top: 3px solid var(--white);
+  border-radius: 50%;
+  margin: 0 auto;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Modal Styles */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal.hidden {
+  display: none;
+}
+
+.modal-content {
+  background-color: var(--bg);
+  border: 1px solid var(--c3);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  width: 90%;
+  max-width: 400px;
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid var(--c3);
+}
+
+.modal-header h2 {
+  margin: 0;
+  color: var(--white);
+  font-size: 1.3rem;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: var(--white);
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-close:hover {
+  color: var(--accent);
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.modal-body p {
+  color: var(--c2);
+  margin: 0 0 15px 0;
+  font-size: 0.9rem;
+}
+
+.modal-body input {
+  width: 100%;
+  margin-bottom: 0;
+}
+
+.modal-footer {
+  display: flex;
+  gap: 10px;
+  padding: 15px 20px;
+  border-top: 1px solid var(--c3);
+}
+
+.modal-footer button {
+  flex: 1;
+}
+
+.btn-secondary {
+  background-color: var(--c3);
+  color: var(--white);
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.2s;
+}
+
+.btn-secondary:hover {
+  background-color: var(--c2);
+}
+
 </style>
 </head>
 <body>
+<div id="loadingScreen" class="loading-screen">
+  <div class="loading-content">
+    <div class="loading-text">NOVA<br><span style="font-weight: 250;">CHAT ROOMS</span></div>
+    <div class="loading-spinner"></div>
+  </div>
+</div>
+
+<!-- Password Modal -->
+<div id="passwordModal" class="modal hidden">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Room Password</h2>
+      <button id="modalClose" class="modal-close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p id="modalRoomName"></p>
+      <input type="password" id="modalPasswordInput" class="user-input" placeholder="Enter room password">
+    </div>
+    <div class="modal-footer">
+      <button id="modalCancel" class="btn-secondary">Cancel</button>
+      <button id="modalSubmit" class="btn-primary">Join</button>
+    </div>
+  </div>
+</div>
+
 <div class="container">
   <div class="sidebar">
     <div class="sidebar-head">
-      <div class="wordmark">Private Room</div>
-      <div class="sub">Encrypted · Local · Direct</div>
+      <div class="wordmark">NOVA</div>
+      <div class="sub">Chat rooms · Tranlated</div>
     </div>
 
     <div class="user-section">
@@ -419,7 +611,7 @@ input, textarea, button { cursor: crosshair; }
 
       <div class="field-label">Language</div>
       <div id="languageLabel">English</div>
-      <input type="text" id="language" class="user-input" placeholder="output language">
+      <input type="text" id="languageInput" class="user-input" placeholder="output language">
       <button id="setLanguageBtn" class="btn-primary">Set Language</button>
     </div>
 
@@ -427,8 +619,12 @@ input, textarea, button { cursor: crosshair; }
       <div class="rooms-head">Rooms</div>
       <div class="room-list" id="roomList"></div>
       <div class="create-room">
-        <input type="text" id="roomInput" placeholder="Room name or username">
-        <button id="createRoomBtn" class="btn-primary">Create / Join</button>
+        <input type="text" id="roomInput" placeholder="Room name">
+        <input type="password" id="roomPasswordInput" class="user-input" placeholder="Optional password">
+        <div class="button-group">
+          <button id="createRoomBtn" class="btn-primary">Create</button>
+          <button id="joinRoomBtn" class="btn-primary">Join</button>
+        </div>
       </div>
     </div>
   </div>

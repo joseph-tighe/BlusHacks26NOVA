@@ -5,6 +5,9 @@ const state = {
     rooms: {},
     messages: {},
     socket: null,
+    pendingPasswordRoom: null, // Track which room needs password
+    pendingJoinRoom: null,     // Track room we're waiting to join
+    pendingJoinPassword: null, // Password for pending join
 };
 
 // DOM Elements
@@ -15,7 +18,9 @@ const setLanguageBtn = document.getElementById('setLanguageBtn');
 const languageLabel = document.getElementById('languageLabel');
 const username = document.getElementById('username');
 const roomInput = document.getElementById('roomInput');
+const roomPasswordInput = document.getElementById('roomPasswordInput');
 const createRoomBtn = document.getElementById('createRoomBtn');
+const joinRoomBtn = document.getElementById('joinRoomBtn');
 const roomList = document.getElementById('roomList');
 const roomTitle = document.getElementById('roomTitle');
 const roomDescription = document.getElementById('roomDescription');
@@ -24,6 +29,14 @@ const messagesContainer = document.getElementById('messagesContainer');
 const messages = document.getElementById('messages');
 const messageInput = document.getElementById('messageInput');
 const sendBtn = document.getElementById('sendBtn');
+
+// Modal Elements
+const passwordModal = document.getElementById('passwordModal');
+const modalRoomName = document.getElementById('modalRoomName');
+const modalPasswordInput = document.getElementById('modalPasswordInput');
+const modalSubmit = document.getElementById('modalSubmit');
+const modalCancel = document.getElementById('modalCancel');
+const modalClose = document.getElementById('modalClose');
 
 // Initialize WebSocket connection
 function initWebSocket() {
@@ -77,20 +90,41 @@ function handleMessage(data) {
         case 'room-joined':
             // Keep UI in sync when the server confirms join
             if (data.room) {
-                if (!state.rooms[data.room]) {
-                    state.rooms[data.room] = {
-                        id: data.room,
-                        name: data.room,
+                const roomId = data.room;
+                const roomName = data.roomName || roomId;
+
+                state.pendingJoinRoom = null;
+                state.pendingJoinPassword = null;
+
+                if (!state.rooms[roomId]) {
+                    state.rooms[roomId] = {
+                        id: roomId,
+                        name: roomName,
                         participants: data.participants || [],
-                        messages: [],
+                        messages: state.messages[roomId] || [],
+                        password: data.password || null,
+                        isProtected: !!data.password,
                     };
                 } else {
-                    state.rooms[data.room].participants = data.participants || [];
-                    state.rooms[data.room].name = data.room;
+                    state.rooms[roomId].name = roomName;
+                    state.rooms[roomId].participants = data.participants || [];
+                    state.rooms[roomId].isProtected = state.rooms[roomId].isProtected || !!data.password;
                 }
 
-                addRoomToList(data.room, data.participants || [], data.room);
-                selectRoom(data.room, false);
+                addRoomToList(roomId, data.participants || [], state.rooms[roomId].name);
+                selectRoom(roomId, false);
+            }
+            break;
+        case 'join-room-failed':
+            if (data.room && state.pendingJoinRoom === data.room) {
+                state.pendingJoinRoom = null;
+                state.pendingJoinPassword = null;
+            }
+
+            if (data.reason === 'incorrect-password') {
+                alert('Incorrect password for this room');
+            } else {
+                alert('Failed to join room');
             }
             break;
         default:
@@ -102,8 +136,17 @@ function handleMessage(data) {
 setLanguageBtn.addEventListener('click', () => {
     const language = languageInput.value.trim();
     if (language) {
-        state.currentLanguage = language;
-        languageLabel.textContent = `${language}`;
+        const mappedLanguage = {
+            english: 'en',
+            spanish: 'es',
+            french: 'fr',
+            german: 'de',
+            chinese: 'zh',
+            japanese: 'ja',
+        }[language.toLowerCase()] || language.toLowerCase();
+
+        state.currentLanguage = mappedLanguage;
+        languageLabel.textContent = `${mappedLanguage}`;
         languageInput.value = '';
         languageInput.disabled = true;
         setLanguageBtn.disabled = true;
@@ -145,11 +188,64 @@ createRoomBtn.addEventListener('click', () => {
     }
 
     const roomName = roomInput.value.trim();
-    if (roomName) {
-        createOrJoinRoom(roomName);
-        roomInput.value = '';
+    if (!roomName) {
+        alert('Please enter a room name');
+        return;
     }
+
+    const roomPasswordValue = roomPasswordInput.value.trim();
+    const roomPassword = roomPasswordValue ? roomPasswordValue : null;
+    
+    createOrJoinRoom(roomName, roomPassword);
+    roomInput.value = '';
+    roomPasswordInput.value = '';
 });
+
+// Join existing room button
+joinRoomBtn.addEventListener('click', () => {
+    if (!state.currentUser) {
+        alert('Please set your username first');
+        return;
+    }
+
+    const roomName = roomInput.value.trim();
+    if (!roomName) {
+        alert('Please enter a room name to join');
+        return;
+    }
+
+    const roomId = roomName.toLowerCase().replace(/\s+/g, '-');
+    const roomPasswordValue = roomPasswordInput.value.trim();
+    const roomPassword = roomPasswordValue ? roomPasswordValue : null;
+    
+    // Attempt to join via selectRoom (sends join-room message to server)
+    selectRoom(roomId, true, roomPassword);
+    
+    roomInput.value = '';
+    roomPasswordInput.value = '';
+});
+
+// Modal helper functions
+function showPasswordModal(roomId, roomName) {
+    state.pendingPasswordRoom = roomId;
+    modalRoomName.textContent = `Enter password for "${roomName}"`;
+    modalPasswordInput.value = '';
+    passwordModal.classList.remove('hidden');
+    modalPasswordInput.focus();
+}
+
+function hidePasswordModal() {
+    passwordModal.classList.add('hidden');
+    state.pendingPasswordRoom = null;
+    modalPasswordInput.value = '';
+}
+
+function submitPassword() {
+    if (!state.pendingPasswordRoom) return;
+    const password = modalPasswordInput.value;
+    hidePasswordModal();
+    selectRoom(state.pendingPasswordRoom, true, password);
+}
 
 // Send message
 sendBtn.addEventListener('click', sendMessage);
@@ -231,11 +327,21 @@ function displayMessage(msgData) {
     messageDiv.appendChild(msgBody);
 
     messages.appendChild(messageDiv);
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    
+    // Auto-scroll to bottom, but only if user is already at the bottom
+    setTimeout(() => {
+        const isAtBottom = messagesContainer.scrollTop + messagesContainer.clientHeight >= messagesContainer.scrollHeight - 50;
+        if (isAtBottom) {
+            messagesContainer.scrollTo({
+                top: messagesContainer.scrollHeight,
+                behavior: 'smooth'
+            });
+        }
+    }, 0);
 }
 
 // Create or join room
-function createOrJoinRoom(roomName) {
+function createOrJoinRoom(roomName, password = null) {
     const roomId = roomName.toLowerCase().replace(/\s+/g, '-');
 
     if (!state.rooms[roomId]) {
@@ -244,29 +350,29 @@ function createOrJoinRoom(roomName) {
             name: roomName,
             participants: [state.currentUser],
             messages: [],
+            password: password,
         };
     } else if (!state.rooms[roomId].participants.includes(state.currentUser)) {
         state.rooms[roomId].participants.push(state.currentUser);
     }
 
     addRoomToList(roomId, state.rooms[roomId].participants, roomName);
-    selectRoom(roomId, true);
+    selectRoom(roomId, true, password);
 }
 
 // Select room
-function selectRoom(roomId, notifyServer = false) {
+function selectRoom(roomId, notifyServer = false, password = null) {
     if (!state.currentUser) {
         alert('Please set your username first');
         return;
     }
 
-    if (state.currentRoom === roomId) {
-        // Already selected; just ensure UI is synced.
+    if (state.currentRoom === roomId && !notifyServer) {
+        // Already selected (local state) - keep UI in sync.
         updateRoomUsers(roomId, state.rooms[roomId]?.participants || []);
         return;
     }
 
-    state.currentRoom = roomId;
     const room = state.rooms[roomId] || {
         id: roomId,
         name: roomId,
@@ -274,15 +380,24 @@ function selectRoom(roomId, notifyServer = false) {
         messages: [],
     };
 
-    if (notifyServer && state.socket && state.socket.readyState === WebSocket.OPEN) {
-        state.socket.send(JSON.stringify({
-            type: 'join-room',
-            room: roomId,
-            roomName: room.name,
-            user: state.currentUser,
-        }));
+    if (notifyServer) {
+        // Defer actual selection until the server authorizes the join.
+        state.pendingJoinRoom = roomId;
+        state.pendingJoinPassword = password || (room.password ? room.password : null);
+
+        if (state.socket && state.socket.readyState === WebSocket.OPEN) {
+            state.socket.send(JSON.stringify({
+                type: 'join-room',
+                room: roomId,
+                roomName: room.name,
+                user: state.currentUser,
+                password: state.pendingJoinPassword,
+            }));
+        }
+        return;
     }
 
+    state.currentRoom = roomId;
     roomTitle.textContent = room.name;
     roomDescription.textContent = `${room.participants.length} participant${room.participants.length !== 1 ? 's' : ''}`;
 
@@ -297,13 +412,19 @@ function selectRoom(roomId, notifyServer = false) {
 
     // Clear and display messages
     messages.innerHTML = '';
-    if (state.messages[roomId]) {
+    if (state.messages[roomId] && state.messages[roomId].length) {
         state.messages[roomId].forEach(msg => displayMessage(msg));
     } else {
         messages.innerHTML = `<div class="empty-state"><div>No messages yet. Start the conversation!</div></div>`;
     }
 
     updateRoomUsers(roomId, room.participants);
+
+    // Scroll to bottom to show latest messages
+    setTimeout(() => {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }, 0);
+
     messageInput.focus();
 }
 
@@ -326,7 +447,9 @@ function addRoomToList(roomId, participants = [], roomName = null) {
 
         const namePart = document.createElement('div');
         namePart.className = 'room-name';
-        namePart.textContent = state.rooms[roomId].name;
+        const roomName = state.rooms[roomId].name;
+        const isProtected = state.rooms[roomId].isProtected;
+        namePart.textContent = isProtected ? `🔒 ${roomName}` : roomName;
 
         const badge = document.createElement('div');
         badge.className = 'room-badge';
@@ -335,7 +458,15 @@ function addRoomToList(roomId, participants = [], roomName = null) {
         roomItem.appendChild(namePart);
         roomItem.appendChild(badge);
 
-        roomItem.addEventListener('click', () => selectRoom(roomId, true));
+        roomItem.addEventListener('click', () => {
+            const room = state.rooms[roomId];
+            // If room has a password and we're not the creator, prompt for password
+            if (room && room.isProtected && !room.password) {
+                showPasswordModal(roomId, room.name);
+            } else {
+                selectRoom(roomId, true);
+            }
+        });
 
         roomList.appendChild(roomItem);
     } else {
@@ -387,6 +518,18 @@ function loadRoomsList(roomsList) {
     roomList.innerHTML = '';
     Object.keys(roomsList).forEach(roomId => {
         const room = roomsList[roomId];
+        // Update room state with isProtected flag
+        if (!state.rooms[roomId]) {
+            state.rooms[roomId] = {
+                id: roomId,
+                name: room.name,
+                participants: room.participants || [],
+                messages: [],
+                isProtected: room.isProtected || false,
+            };
+        } else {
+            state.rooms[roomId].isProtected = room.isProtected || false;
+        }
         addRoomToList(roomId, room.participants, room.name);
     });
 }
@@ -402,7 +545,26 @@ function formatTime(isoString) {
     return `${hours}:${minutes}`;
 }
 
+// Modal event listeners
+modalSubmit.addEventListener('click', submitPassword);
+modalCancel.addEventListener('click', hidePasswordModal);
+modalClose.addEventListener('click', hidePasswordModal);
+modalPasswordInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        submitPassword();
+    }
+});
+
 // Initialize app
 window.addEventListener('load', () => {
+    // Hide loading screen after 1 second
+    setTimeout(() => {
+        const loadingScreen = document.getElementById('loadingScreen');
+        if (loadingScreen) {
+            loadingScreen.classList.add('hidden');
+        }
+    }, 1000);
+    
     initWebSocket();
 });
