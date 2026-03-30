@@ -32,8 +32,6 @@ html, body {
  
 }
 
-input, textarea, button { cursor: crosshair; }
-
 ::-webkit-scrollbar { width: 3px; background: var(--c1); }
 ::-webkit-scrollbar-thumb { background: var(--c4); }
 
@@ -715,6 +713,10 @@ input, textarea, button { cursor: crosshair; }
       <div class="create-room">
         <input type="text" id="roomInput" placeholder="Room name">
         <input type="password" id="roomPasswordInput" class="user-input" placeholder="Optional password">
+        <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+  <input type="checkbox" id="temp" name="temp" value="Temp" style="width: 1em; height: 1em;">
+  <label for="temp">Is it a temporary room</label>
+</div>
         <div class="button-group">
           <button id="createRoomBtn" class="btn-primary">Create</button>
           <button id="joinRoomBtn" class="btn-primary">Join</button>

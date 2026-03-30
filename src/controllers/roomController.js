@@ -1,6 +1,30 @@
-const rooms = {};
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+import { loadRoomsList } from './loadIn.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const rooms = loadRoomsList();
 const userSessions = new Map();
 const userPreferredLanguage = new Map();
+
+function updateRoom(roomId) {
+  if (!rooms[roomId] || rooms[roomId].isTemp) return;
+  writeRoomData();
+}
+
+function writeRoomData() {
+  const roomsFile = path.join(__dirname, '../../data/chats.json');
+  // Serialize rooms without sockets (they're live objects that can't be saved)
+  const serializable = {};
+  Object.keys(rooms).forEach((roomId) => {
+    const { sockets, ...rest } = rooms[roomId];
+    serializable[roomId] = rest;
+  });
+  fs.writeFileSync(roomsFile, JSON.stringify(serializable, null, 2));
+}
 
 export function getRoomsList() {
   const roomsList = {};
@@ -18,8 +42,8 @@ export function getRoomsList() {
 
 export function verifyRoomPassword(roomId, password) {
   const room = rooms[roomId];
-  if (!room) return true; // New room, allow join
-  if (!room.password) return true; // No password required
+  if (!room) return true;
+  if (!room.password) return true;
   return room.password === password;
 }
 
@@ -41,7 +65,7 @@ export function unregisterUser(user) {
   userSessions.delete(user);
 }
 
-export function createOrJoinRoom(user, roomId, roomName, ws, password = null) {
+export function createOrJoinRoom(user, roomId, roomName, ws, password = null, isTemp = false) {
   if (!user || !roomId) return null;
 
   if (!rooms[roomId]) {
@@ -52,17 +76,21 @@ export function createOrJoinRoom(user, roomId, roomName, ws, password = null) {
       messages: [],
       sockets: new Set(),
       password: password || null,
+      isTemp: isTemp || false,
       createdAt: new Date(),
     };
+  }
+
+  // Ensure sockets is always a Set (safety guard)
+  if (!(rooms[roomId].sockets instanceof Set)) {
+    rooms[roomId].sockets = new Set();
   }
 
   if (!rooms[roomId].participants.includes(user)) {
     rooms[roomId].participants.push(user);
   }
 
-  if (ws && !rooms[roomId].sockets.has(ws)) {
-    rooms[roomId].sockets.add(ws);
-  }
+  if (ws) rooms[roomId].sockets.add(ws);
 
   return rooms[roomId];
 }
@@ -73,10 +101,13 @@ export function removeUserFromAllRooms(user, ws) {
     const room = rooms[roomId];
     if (!room) return;
 
-    room.participants = room.participants.filter((p) => p !== user);
-    if (ws && room.sockets.has(ws)) {
-      room.sockets.delete(ws);
+    // Ensure sockets is always a Set (safety guard)
+    if (!(room.sockets instanceof Set)) {
+      room.sockets = new Set();
     }
+
+    room.participants = room.participants.filter((p) => p !== user);
+    if (ws) room.sockets.delete(ws);
 
     if (room.participants.length === 0) {
       delete rooms[roomId];
@@ -103,10 +134,17 @@ export function getUserBySocket(ws) {
 export function broadcastRoomEvent(roomId, payload) {
   const room = rooms[roomId];
   if (!room) return;
+
+  // Ensure sockets is always a Set (safety guard)
+  if (!(room.sockets instanceof Set)) {
+    room.sockets = new Set();
+  }
+
   for (const client of room.sockets) {
     if (client.readyState !== 1) continue;
     client.send(JSON.stringify(payload));
   }
+  updateRoom(roomId);
 }
 
 export { rooms, userSessions, userPreferredLanguage };

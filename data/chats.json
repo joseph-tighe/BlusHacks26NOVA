@@ -1,0 +1,55 @@
+{
+  "etgr": {
+    "id": "etgr",
+    "name": "etgr",
+    "participants": [
+      "gfr",
+      "ujyht"
+    ],
+    "messages": [
+      {
+        "type": "message",
+        "room": "etgr",
+        "author": "gfr",
+        "text": "trwfed",
+        "sourceText": "trwfed",
+        "sourceLanguage": "en",
+        "timestamp": "2026-03-30T01:12:17.959Z"
+      },
+      {
+        "type": "message",
+        "room": "etgr",
+        "author": "ujyht",
+        "text": "gtfd",
+        "sourceText": "gtfd",
+        "sourceLanguage": "en",
+        "timestamp": "2026-03-30T01:18:57.486Z"
+      }
+    ],
+    "password": null,
+    "isTemp": false,
+    "createdAt": "2026-03-30T01:12:15.410Z"
+  },
+  "yetgrf": {
+    "id": "yetgrf",
+    "name": "yetgrf",
+    "participants": [
+      "gfr"
+    ],
+    "messages": [],
+    "password": null,
+    "isTemp": false,
+    "createdAt": "2026-03-30T01:12:42.157Z"
+  },
+  "uyrhtegr": {
+    "id": "uyrhtegr",
+    "name": "uyrhtegr",
+    "participants": [
+      "ujyht"
+    ],
+    "messages": [],
+    "password": null,
+    "isTemp": false,
+    "createdAt": "2026-03-30T01:19:03.981Z"
+  }
+}

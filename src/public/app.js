@@ -32,6 +32,7 @@ const sendBtn = document.getElementById('sendBtn');
 const openSidebarBtn = document.getElementById('openSidebarBtn');
 const toggleSidebarBtn = document.getElementById('toggleSidebarBtn');
 const sidebar = document.querySelector('.sidebar');
+const temp = document.getElementById('temp');
 
 // Modal Elements
 const passwordModal = document.getElementById('passwordModal');
@@ -198,8 +199,9 @@ createRoomBtn.addEventListener('click', () => {
 
     const roomPasswordValue = roomPasswordInput.value.trim();
     const roomPassword = roomPasswordValue ? roomPasswordValue : null;
+    const isTemp = temp.checked;
     
-    createOrJoinRoom(roomName, roomPassword);
+    createOrJoinRoom(roomName, roomPassword, isTemp);
     roomInput.value = '';
     roomPasswordInput.value = '';
 });
@@ -344,7 +346,7 @@ function displayMessage(msgData) {
 }
 
 // Create or join room
-function createOrJoinRoom(roomName, password = null) {
+function createOrJoinRoom(roomName, password = null, isTemp = false) {
     const roomId = roomName.toLowerCase().replace(/\s+/g, '-');
 
     if (!state.rooms[roomId]) {
@@ -354,6 +356,7 @@ function createOrJoinRoom(roomName, password = null) {
             participants: [state.currentUser],
             messages: [],
             password: password,
+            isTemp: isTemp,
         };
     } else if (!state.rooms[roomId].participants.includes(state.currentUser)) {
         state.rooms[roomId].participants.push(state.currentUser);
